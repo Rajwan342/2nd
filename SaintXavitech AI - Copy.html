@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>SaintXavitech AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet"/>
+
+<style>
+:root{
+  --bg1:#0a0f1f; --bg2:#09244d; --user:#1e88e5; --bot:#222;
+  --blue:#007bff; --light:#eee;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Poppins,Arial,sans-serif}
+
+html,body{
+  height:100%;width:100%;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
+}
+
+/* ------------ full-screen chat ------------ */
+.chat{
+  position:relative;                 /* for mic positioning */
+  height:calc(100dvh - env(safe-area-inset-bottom));
+  width:calc(100dvw - 2*env(safe-area-inset-left));
+  margin:auto;
+  display:flex;flex-direction:column;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(10px);
+  border-radius:16px;border-bottom:5px solid var(--blue);
+  box-shadow:0 10px 30px rgba(0,123,255,.35);
+  overflow:hidden;                   /* hide inner scrollbars */
+}
+
+/* header */
+h2{padding:16px;text-align:center;font-size:1.6rem;color:var(--light);
+    border-bottom:1px solid var(--blue)}
+
+/* message list */
+#msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.msg{padding:14px 18px;border-radius:12px;max-width:80%;white-space:pre-wrap;font-size:1rem;
+     box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.user{align-self:flex-end;background:var(--user);color:#fff}
+.bot {align-self:flex-start;background:var(--bot); color:#a5f1ff}
+.error{background:#651616;color:#ffd7d7}
+
+/* input row */
+.row{display:flex;gap:12px;padding:16px;background:rgba(10,20,40,.85);border-top:1px solid var(--blue)}
+.row input{flex:1;padding:14px;border-radius:10px;border:1px solid #444;background:rgba(255,255,255,.08);color:var(--light)}
+.row input::placeholder{color:#aaa}
+.row input:focus{outline:none;border-color:var(--blue);background:rgba(255,255,255,.14)}
+button{padding:14px 18px;border:none;border-radius:10px;background:var(--blue);color:#fff;font-weight:600;cursor:pointer}
+button:hover{background:#0056b3}
+
+/* floating mic */
+#micBtn{
+  position:absolute;right:min(24px, env(safe-area-inset-right) + 12px);
+  bottom:calc(84px + env(safe-area-inset-bottom));
+  width:60px;height:60px;border-radius:50%;background:var(--blue);font-size:1.6rem;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 12px #007bff99,0 0 24px #007bff55;transition:.25s;
+}
+#micBtn:hover{transform:scale(1.08)}
+</style>
+</head>
+<body>
+
+<div class="chat">
+  <h2>SaintXavitech AI</h2>
+
+  <div id="msgs"></div>
+
+  <div class="row">
+    <input id="input" placeholder="Ask me something…" autocomplete="off">
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <button id="micBtn">🎤</button>
+</div>
+
+<script>
+const API_KEY  = "AIzaSyAqcXAO4TC3zIqjFekLbssQpHEQnl6xBXk";  // replace
+const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+const msgs = document.getElementById("msgs"),
+      box  = document.getElementById("input"),
+      send = document.getElementById("sendBtn"),
+      mic  = document.getElementById("micBtn");
+
+const add = (t,c)=>{const d=document.createElement("div");d.className=`msg ${c}`;d.textContent=t;
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d};
+
+async function ask(q){
+  const wait=add("Bot is thinking …","bot");
+  try{
+    const res=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:q}]}],generationConfig:{maxOutputTokens:1024}})});
+    const data=await res.json();
+    if(data.error){wait.textContent="⚠️ "+data.error.message;wait.classList.add("error");return;}
+    wait.textContent=data.candidates[0].content.parts[0].text;
+  }catch(e){wait.textContent="⚠️ "+e.message;wait.classList.add("error")}
+}
+
+function sendMsg(){const q=box.value.trim();if(!q)return;box.value="";add("You: "+q,"user");ask(q);}
+send.onclick=sendMsg;box.addEventListener("keypress",e=>{if(e.key==="Enter")sendMsg()});
+
+/* speech */
+mic.onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return alert("Speech recognition unsupported");
+  mic.textContent="⏳";
+  const rec=new SR();rec.lang="en-US";rec.start();
+  rec.onresult=e=>{const t=e.results[0][0].transcript;add("You (voice): "+t,"user");ask(t);mic.textContent="🎤";}
+  rec.onerror=e=>{alert("Speech error: "+e.error);mic.textContent="🎤";}
+  rec.onend =()=>{if(mic.textContent!=="🎤")mic.textContent="🎤";}
+};
+</script>
+</body>
+</html>
